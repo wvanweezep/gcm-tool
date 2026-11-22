@@ -80,7 +80,7 @@ class FunctionalGroup:
         # Match all groups in the sorted order (with replacement)
         matched: set[int] = set()
         for group in sorted_groups:
-            matches = group.match(self._query, matched)
+            matches = group.match(self._query, matched, use_qq_match=True)
             if matches > 0: decomp[group.smarts] = (group, matches)
 
         # Evaluate whether the decomposition is strict if required
@@ -91,7 +91,7 @@ class FunctionalGroup:
         self._decomp = decomp
 
 
-    def match(self, mol: Chem.Mol, matched: set[int]) -> int:
+    def match(self, mol: Chem.Mol, matched: set[int], use_qq_match: bool = False) -> int:
         """
         Find the number of occurrences of the functional group in the unmatched atoms of a molecule,
         automatically updating the set of matched atoms after completion.
@@ -103,7 +103,7 @@ class FunctionalGroup:
         # Find all (unique) substructure matches
         matches = set()
         matches.update(mol.GetSubstructMatches(self._query, uniquify=True, useQueryQueryMatches=False))
-        matches.update(mol.GetSubstructMatches(self._query, uniquify=True, useQueryQueryMatches=True))
+        if use_qq_match: matches.update(mol.GetSubstructMatches(self._query, uniquify=True, useQueryQueryMatches=True))
 
         # Evaluate every substructure match found
         count: int = 0
@@ -117,6 +117,26 @@ class FunctionalGroup:
             count += 1
 
         return count
+
+    def get_matches(self, mol: Chem.Mol) -> list[tuple[int, ...]]:
+        """
+        Get all unique substructure matches without assigning atoms.
+
+        Returns:
+            List of unique atom-index tuples.
+        """
+        matches = set()
+
+        for query_query in (False, True):
+            matches.update(
+                mol.GetSubstructMatches(
+                    self._query,
+                    uniquify=True,
+                    useQueryQueryMatches=query_query
+                )
+            )
+
+        return sorted(matches)
 
 
     def __str__(self) -> str:
